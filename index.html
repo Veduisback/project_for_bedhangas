@@ -232,7 +232,7 @@
     <source src="Azure - dead end (slowed) (SPOTISAVER).mp3" type="audio/mpeg">
   </audio>
 
-  <script>
+ <script>
 
     // ---------------------------
     // SIMPLE SYLLABLE SPLITTER
@@ -347,6 +347,8 @@
     let alarmActive = false;
     let alarmStartTime = 0;
 
+    let pausedMainTimer = 0;
+
     function updateDisplay(){
 
       let mins = Math.floor(totalSeconds / 60);
@@ -357,16 +359,9 @@
       String(secs).padStart(2,'0');
     }
 
-    function startTimer(){
+    function runMainTimer(){
 
       clearInterval(timer);
-
-      totalSeconds = focusLevels[currentLevel] * 60;
-
-      document.getElementById("status").innerText =
-      "Focus session running...";
-
-      updateDisplay();
 
       timer = setInterval(()=>{
 
@@ -382,6 +377,20 @@
         }
 
       },1000);
+    }
+
+    function startTimer(){
+
+      clearInterval(timer);
+
+      totalSeconds = focusLevels[currentLevel] * 60;
+
+      document.getElementById("status").innerText =
+      "Focus session running...";
+
+      updateDisplay();
+
+      runMainTimer();
     }
 
     function triggerAlarm(){
@@ -433,143 +442,151 @@
       "Current Focus Level: " + focusLevels[currentLevel] + " Minutes";
     }
 
-    function resumeTimer(){
-
-      startTimer();
-    }
     // ---------------------------
-// TOILET BREAK TIMER
-// ---------------------------
+    // TOILET BREAK TIMER
+    // ---------------------------
 
-let breakInterval;
-let breakSeconds = 60;
-let isBreakRunning = false;
+    let breakInterval;
+    let breakSeconds = 60;
 
-function updateBreakDisplay(){
+    function updateBreakDisplay(){
 
-  let mins = Math.floor(breakSeconds / 60);
-  let secs = breakSeconds % 60;
+      let mins = Math.floor(breakSeconds / 60);
+      let secs = breakSeconds % 60;
 
-  document.getElementById("breakTimer").innerText =
-  "Break Time Left: " +
-  String(mins).padStart(2,'0') + ":" +
-  String(secs).padStart(2,'0');
-}
+      document.getElementById("breakTimer").innerText =
+      "Break Time Left: " +
+      String(mins).padStart(2,'0') + ":" +
+      String(secs).padStart(2,'0');
+    }
 
-function pauseForBreak(){
+    function pauseForBreak(){
 
-  clearInterval(timer);
+      pausedMainTimer = totalSeconds;
 
-  isBreakRunning = true;
+      clearInterval(timer);
 
-  breakSeconds = 60;
+      breakSeconds = 60;
 
-  document.getElementById("breakTimer").style.display = "block";
+      document.getElementById("breakTimer").style.display = "block";
 
-  document.getElementById("status").innerText =
-  "Break started. Return within 1 minute.";
+      document.getElementById("status").innerText =
+      "Break started. Return within 1 minute.";
 
-  updateBreakDisplay();
-
-  clearInterval(breakInterval);
-
-  breakInterval = setInterval(()=>{
-
-    breakSeconds--;
-
-    updateBreakDisplay();
-
-    if(breakSeconds <= 0){
+      updateBreakDisplay();
 
       clearInterval(breakInterval);
 
-      document.getElementById("status").innerText =
-      "BREAK OVER! RETURN NOW!";
+      breakInterval = setInterval(()=>{
 
-      startTabAlarm();
+        breakSeconds--;
+
+        updateBreakDisplay();
+
+        if(breakSeconds <= 0){
+
+          clearInterval(breakInterval);
+
+          document.getElementById("status").innerText =
+          "BREAK OVER! RETURN NOW!";
+
+          startTabAlarm();
+        }
+
+      },1000);
     }
 
-  },1000);
-}
+    function resumeTimer(){
 
-function resumeTimer(){
+      stopTabAlarm();
 
-  stopTabAlarm();
+      clearInterval(breakInterval);
 
-  clearInterval(breakInterval);
+      document.getElementById("breakTimer").style.display = "none";
 
-  isBreakRunning = false;
+      totalSeconds = pausedMainTimer;
 
-  document.getElementById("breakTimer").style.display = "none";
+      updateDisplay();
 
-  startTimer();
-}
+      document.getElementById("status").innerText =
+      "Focus session resumed.";
+
+      runMainTimer();
+    }
 
     updateDisplay();
 
     // ---------------------------
-// LOUD CONTINUOUS TAB ALERT
-// ---------------------------
+    // LOUD CONTINUOUS TAB ALERT
+    // ---------------------------
 
-let tabAlarmInterval = null;
+    let tabAlarmInterval = null;
+    let tabSwitchTimeout = null;
 
-function startTabAlarm(){
+    function startTabAlarm(){
 
-  if(tabAlarmInterval) return;
+      if(tabAlarmInterval) return;
 
-  tabAlarmInterval = setInterval(()=>{
+      tabAlarmInterval = setInterval(()=>{
 
-    if(!audioContext){
-      audioContext = new(window.AudioContext || window.webkitAudioContext)();
+        if(!audioContext){
+          audioContext = new(window.AudioContext || window.webkitAudioContext)();
+        }
+
+        let oscillator = audioContext.createOscillator();
+        let gainNode = audioContext.createGain();
+
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+
+        oscillator.type = "sawtooth";
+        oscillator.frequency.value = 1400;
+
+        gainNode.gain.value = 0.4;
+
+        oscillator.start();
+
+        oscillator.frequency.exponentialRampToValueAtTime(
+          300,
+          audioContext.currentTime + 0.25
+        );
+
+        oscillator.stop(audioContext.currentTime + 0.3);
+
+      },350);
     }
 
-    let oscillator = audioContext.createOscillator();
-    let gainNode = audioContext.createGain();
+    function stopTabAlarm(){
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+      clearInterval(tabAlarmInterval);
 
-    // VERY ANNOYING SOUND
-    oscillator.type = "sawtooth";
-    oscillator.frequency.value = 1400;
+      tabAlarmInterval = null;
+    }
 
-    gainNode.gain.value = 0.4;
+    document.addEventListener("visibilitychange",()=>{
 
-    oscillator.start();
+      if(document.hidden){
 
-    oscillator.frequency.exponentialRampToValueAtTime(
-      300,
-      audioContext.currentTime + 0.25
-    );
+        document.getElementById("focusAlert").style.display = "block";
 
-    oscillator.stop(audioContext.currentTime + 0.3);
+        // WAIT 7 SECONDS BEFORE ALARM
+        tabSwitchTimeout = setTimeout(()=>{
 
-  },350);
+          if(document.hidden){
+            startTabAlarm();
+          }
 
-}
+        },7000);
 
-function stopTabAlarm(){
+      }else{
 
-  clearInterval(tabAlarmInterval);
+        clearTimeout(tabSwitchTimeout);
 
-  tabAlarmInterval = null;
-}
+        stopTabAlarm();
 
-document.addEventListener("visibilitychange",()=>{
-
-  if(document.hidden){
-
-    startTabAlarm();
-
-    document.getElementById("focusAlert").style.display = "block";
-
-  }else{
-
-    stopTabAlarm();
-
-    document.getElementById("focusAlert").style.display = "none";
-  }
-});
+        document.getElementById("focusAlert").style.display = "none";
+      }
+    });
 
     // ---------------------------
     // ASK NOTIFICATION PERMISSION
@@ -579,7 +596,7 @@ document.addEventListener("visibilitychange",()=>{
       Notification.requestPermission();
     }
 
-  </script>
+</script>
 
 </body>
 </html>
