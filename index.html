@@ -200,11 +200,16 @@
 
       <div style="text-align:center;">
 
-        <button onclick="startTimer()">START</button>
-        <button onclick="stopAlarm()">STOP ALARM</button>
-        <button onclick="resumeTimer()">RESUME</button>
+  <button onclick="startTimer()">START</button>
+  <button onclick="stopAlarm()">STOP ALARM</button>
+  <button onclick="resumeTimer()">RESUME</button>
+  <button onclick="pauseForBreak()">TOILET BREAK</button>
 
-      </div>
+</div>
+
+<div class="timer" id="breakTimer" style="font-size:35px; display:none; color:#ffb3b3;">
+  Break Time Left: 01:00
+</div>
 
       <div class="status" id="status">
         Waiting to start...
@@ -432,6 +437,73 @@
 
       startTimer();
     }
+    // ---------------------------
+// TOILET BREAK TIMER
+// ---------------------------
+
+let breakInterval;
+let breakSeconds = 60;
+let isBreakRunning = false;
+
+function updateBreakDisplay(){
+
+  let mins = Math.floor(breakSeconds / 60);
+  let secs = breakSeconds % 60;
+
+  document.getElementById("breakTimer").innerText =
+  "Break Time Left: " +
+  String(mins).padStart(2,'0') + ":" +
+  String(secs).padStart(2,'0');
+}
+
+function pauseForBreak(){
+
+  clearInterval(timer);
+
+  isBreakRunning = true;
+
+  breakSeconds = 60;
+
+  document.getElementById("breakTimer").style.display = "block";
+
+  document.getElementById("status").innerText =
+  "Break started. Return within 1 minute.";
+
+  updateBreakDisplay();
+
+  clearInterval(breakInterval);
+
+  breakInterval = setInterval(()=>{
+
+    breakSeconds--;
+
+    updateBreakDisplay();
+
+    if(breakSeconds <= 0){
+
+      clearInterval(breakInterval);
+
+      document.getElementById("status").innerText =
+      "BREAK OVER! RETURN NOW!";
+
+      startTabAlarm();
+    }
+
+  },1000);
+}
+
+function resumeTimer(){
+
+  stopTabAlarm();
+
+  clearInterval(breakInterval);
+
+  isBreakRunning = false;
+
+  document.getElementById("breakTimer").style.display = "none";
+
+  startTimer();
+}
 
     updateDisplay();
 
