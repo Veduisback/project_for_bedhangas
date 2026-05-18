@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Focus Reader</title>
+
+  <style>
+    *{
+      margin:0;
+      padding:0;
+      box-sizing:border-box;
+      font-family: "Segoe UI", sans-serif;
+    }
+
+    body{
+      background: linear-gradient(135deg,#021024,#052659,#0a4b8e);
+      min-height:100vh;
+      color:white;
+      overflow-x:hidden;
+      padding:30px;
+    }
+
+    body::before{
+      content:'';
+      position:fixed;
+      width:100%;
+      height:100%;
+      left:0;
+      top:0;
+      background:
+      radial-gradient(circle at top left,#0ef4 0%,transparent 30%),
+      radial-gradient(circle at bottom right,#00f2ff33 0%,transparent 25%);
+      z-index:-1;
+    }
+
+    h1{
+      text-align:center;
+      margin-bottom:20px;
+      font-size:3rem;
+      color:#8bd6ff;
+      text-shadow:0 0 15px #00d9ff;
+    }
+
+    .container{
+      max-width:1200px;
+      margin:auto;
+      display:grid;
+      grid-template-columns:1fr 1fr;
+      gap:25px;
+    }
+
+    .card{
+      background:rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.15);
+      backdrop-filter:blur(10px);
+      border-radius:20px;
+      padding:25px;
+      box-shadow:0 0 20px rgba(0,255,255,0.15);
+    }
+
+    textarea{
+      width:100%;
+      height:250px;
+      border:none;
+      border-radius:15px;
+      background:#02182e;
+      color:white;
+      padding:20px;
+      resize:none;
+      font-size:18px;
+      outline:none;
+      border:1px solid #00bfff66;
+    }
+
+    .output{
+      min-height:250px;
+      background:#02182e;
+      border-radius:15px;
+      padding:20px;
+      font-size:26px;
+      line-height:2.2;
+      border:1px solid #00bfff66;
+      overflow-y:auto;
+    }
+
+    button{
+      padding:12px 22px;
+      border:none;
+      border-radius:12px;
+      background:linear-gradient(135deg,#00bfff,#006eff);
+      color:white;
+      font-size:16px;
+      cursor:pointer;
+      margin:10px 5px;
+      transition:0.2s;
+      font-weight:bold;
+    }
+
+    button:hover{
+      transform:scale(1.05);
+      box-shadow:0 0 15px #00d9ff;
+    }
+
+    .timer{
+      font-size:60px;
+      text-align:center;
+      margin:20px 0;
+      color:#9ee9ff;
+      text-shadow:0 0 20px #00d9ff;
+    }
+
+    .status{
+      text-align:center;
+      margin-top:10px;
+      font-size:18px;
+      color:#8ff;
+    }
+
+    .music-box{
+      margin-top:20px;
+      text-align:center;
+    }
+
+    .warning{
+      margin-top:15px;
+      color:#ffbebe;
+      text-align:center;
+      font-size:14px;
+    }
+
+    .level{
+      text-align:center;
+      margin-top:10px;
+      font-size:20px;
+      color:#8ff;
+    }
+
+    .focusAlert{
+      background:#ff003355;
+      border:1px solid red;
+      padding:10px;
+      margin-top:10px;
+      border-radius:10px;
+      text-align:center;
+      display:none;
+    }
+
+    @media(max-width:900px){
+      .container{
+        grid-template-columns:1fr;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <h1>FOCUS READER</h1>
+
+  <div class="container">
+
+    <!-- LEFT -->
+    <div class="card">
+
+      <h2>Input Paragraph</h2>
+      <br>
+
+      <textarea id="inputText" placeholder="Paste paragraph here..."></textarea>
+
+      <button onclick="convertText()">Convert to Easy Reading</button>
+
+      <div class="warning">
+        🔊 Allow speaker sound and notifications for focus monitoring.
+      </div>
+
+      <div class="music-box">
+        <h2>Focus Music</h2>
+
+        <button onclick="playMusic1()">Play Music 1</button>
+        <button onclick="playMusic2()">Play Music 2</button>
+        <button onclick="pauseMusic()">Pause Music</button>
+      </div>
+
+    </div>
+
+    <!-- RIGHT -->
+    <div class="card">
+
+      <h2>Easy Reading Output</h2>
+      <br>
+
+      <div class="output" id="output"></div>
+
+      <div class="timer" id="timer">05:00</div>
+
+      <div class="level" id="level">
+        Current Focus Level: 5 Minutes
+      </div>
+
+      <div style="text-align:center;">
+
+        <button onclick="startTimer()">START</button>
+        <button onclick="stopAlarm()">STOP ALARM</button>
+        <button onclick="resumeTimer()">RESUME</button>
+
+      </div>
+
+      <div class="status" id="status">
+        Waiting to start...
+      </div>
+
+      <div class="focusAlert" id="focusAlert">
+        ⚠ YOU LEFT THE TAB! FOCUS LOST!
+      </div>
+
+    </div>
+
+  </div>
+
+  <!-- AUDIO FILES -->
+  <audio id="music1" loop>
+    <source src="pandora., chillwithme, cødy - interstellar. (SPOTISAVER).mp3" type="audio/mpeg">
+  </audio>
+
+  <audio id="music2" loop>
+    <source src="Azure - dead end (slowed) (SPOTISAVER).mp3" type="audio/mpeg">
+  </audio>
+
+  <script>
+
+    // ---------------------------
+    // SIMPLE SYLLABLE SPLITTER
+    // ---------------------------
+
+    function splitWord(word){
+
+      word = word.toLowerCase();
+
+      let vowels = "aeiouy";
+      let result = "";
+      let current = "";
+
+      for(let i=0;i<word.length;i++){
+
+        current += word[i];
+
+        if(vowels.includes(word[i])){
+
+          if(i+1 < word.length && !vowels.includes(word[i+1])){
+
+            result += current + "-";
+            current = "";
+          }
+        }
+      }
+
+      result += current;
+
+      return result.replace(/--+/g,'-');
+    }
+
+    function convertText(){
+
+      let text = document.getElementById("inputText").value;
+
+      let words = text.split(" ");
+
+      let output = "";
+
+      words.forEach(word=>{
+
+        output += splitWord(word) + " ";
+      });
+
+      document.getElementById("output").innerHTML = output;
+    }
+
+    // ---------------------------
+    // MUSIC
+    // ---------------------------
+
+    let music1 = document.getElementById("music1");
+    let music2 = document.getElementById("music2");
+
+    function playMusic1(){
+      music2.pause();
+      music1.play();
+    }
+
+    function playMusic2(){
+      music1.pause();
+      music2.play();
+    }
+
+    function pauseMusic(){
+      music1.pause();
+      music2.pause();
+    }
+
+    // ---------------------------
+    // BEEP
+    // ---------------------------
+
+    let audioContext;
+
+    function beep(){
+
+      if(!audioContext){
+        audioContext = new(window.AudioContext || window.webkitAudioContext)();
+      }
+
+      let oscillator = audioContext.createOscillator();
+      let gainNode = audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+
+      oscillator.type = "square";
+      oscillator.frequency.value = 900;
+
+      oscillator.start();
+
+      gainNode.gain.exponentialRampToValueAtTime(
+        0.0001,
+        audioContext.currentTime + 1
+      );
+
+      oscillator.stop(audioContext.currentTime + 1);
+    }
+
+    // ---------------------------
+    // TIMER SYSTEM
+    // ---------------------------
+
+    let timer;
+    let totalSeconds = 300;
+
+    let focusLevels = [5,15,30,45,60];
+    let currentLevel = 0;
+
+    let alarmActive = false;
+    let alarmStartTime = 0;
+
+    function updateDisplay(){
+
+      let mins = Math.floor(totalSeconds / 60);
+      let secs = totalSeconds % 60;
+
+      document.getElementById("timer").innerText =
+      String(mins).padStart(2,'0') + ":" +
+      String(secs).padStart(2,'0');
+    }
+
+    function startTimer(){
+
+      clearInterval(timer);
+
+      totalSeconds = focusLevels[currentLevel] * 60;
+
+      document.getElementById("status").innerText =
+      "Focus session running...";
+
+      updateDisplay();
+
+      timer = setInterval(()=>{
+
+        totalSeconds--;
+
+        updateDisplay();
+
+        if(totalSeconds <= 0){
+
+          clearInterval(timer);
+
+          triggerAlarm();
+        }
+
+      },1000);
+    }
+
+    function triggerAlarm(){
+
+      alarmActive = true;
+
+      alarmStartTime = Date.now();
+
+      document.getElementById("status").innerText =
+      "STOP ALARM FAST! Are you focused?";
+
+      beep();
+
+      let repeatAlarm = setInterval(()=>{
+
+        if(alarmActive){
+          beep();
+        }else{
+          clearInterval(repeatAlarm);
+        }
+
+      },1200);
+    }
+
+    function stopAlarm(){
+
+      if(!alarmActive) return;
+
+      let reactionTime = (Date.now() - alarmStartTime) / 1000;
+
+      alarmActive = false;
+
+      if(reactionTime <= 2){
+
+        document.getElementById("status").innerText =
+        "Great focus! Break approved.";
+
+        if(currentLevel < focusLevels.length-1){
+          currentLevel++;
+        }
+
+      }else{
+
+        document.getElementById("status").innerText =
+        "Focus lost. Restarting same level.";
+      }
+
+      document.getElementById("level").innerText =
+      "Current Focus Level: " + focusLevels[currentLevel] + " Minutes";
+    }
+
+    function resumeTimer(){
+
+      startTimer();
+    }
+
+    updateDisplay();
+
+    // ---------------------------
+    // TAB SWITCH DETECTION
+    // ---------------------------
+
+    document.addEventListener("visibilitychange",()=>{
+
+      if(document.hidden){
+
+        beep();
+
+        document.getElementById("focusAlert").style.display = "block";
+
+      }else{
+
+        document.getElementById("focusAlert").style.display = "none";
+      }
+    });
+
+    // ---------------------------
+    // ASK NOTIFICATION PERMISSION
+    // ---------------------------
+
+    if(Notification.permission !== "granted"){
+      Notification.requestPermission();
+    }
+
+  </script>
+
+</body>
+</html>
